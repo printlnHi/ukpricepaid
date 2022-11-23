@@ -6,6 +6,16 @@ import pymysql
 
 """Place commands in this file to access the data electronically. Don't remove any missing values, or deal with outliers. Make sure you have legalities correct, both intellectual property and personal data privacy rights. Beyond the legal side also think about the ethical issues around this data. """
 
+def execute(conn, commands):
+    cur = conn.cursor()
+    if type(commands)==str then:
+        commands=[commands]
+    for command in commands:
+        cur.execute(command)
+    cur.close()
+    conn.commit()
+    return cur.fetchall()
+
 def create_connection(user, password, host, database, port=3306):
     """ Create a database connection to the MariaDB database
         specified by the host url and database name.
@@ -31,14 +41,10 @@ def create_connection(user, password, host, database, port=3306):
 
 
 def create_database_ifne(conn):
-    cur = conn.cursor()
-    cur.execute("CREATE DATABASE IF NOT EXISTS `property_prices` DEFAULT CHARACTER SET utf8 COLLATE utf8_bin")
-    return cur.fetchall()
+    return execute(conn,"CREATE DATABASE IF NOT EXISTS `property_prices` DEFAULT CHARACTER SET utf8 COLLATE utf8_bin")
 
 def create_pricepaid_table(conn):
-    cur = conn.cursor()
-    cur.execute("DROP TABLE IF EXISTS `pp_data`")
-    cur.execute("""CREATE TABLE IF NOT EXISTS `pp_data` (
+    return execute(conn,["DROP TABLE IF EXISTS `pp_data`","""CREATE TABLE IF NOT EXISTS `pp_data` (
     `transaction_unique_identifier` tinytext COLLATE utf8_bin NOT NULL,
     `price` int(10) unsigned NOT NULL,
     `date_of_transfer` date NOT NULL,
@@ -56,15 +62,38 @@ def create_pricepaid_table(conn):
     `ppd_category_type` varchar(2) COLLATE utf8_bin NOT NULL,
     `record_status` varchar(2) COLLATE utf8_bin NOT NULL,
     `db_id` bigint(20) unsigned NOT NULL
-    ) DEFAULT CHARSET=utf8 COLLATE=utf8_bin AUTO_INCREMENT=1""")
-    cur.execute("ALTER TABLE `pp_data` ADD PRIMARY KEY (`db_id`), MODIFY `db_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=1")
-    return cur.fetchall()
+    ) DEFAULT CHARSET=utf8 COLLATE=utf8_bin AUTO_INCREMENT=1""",
+    "ALTER TABLE `pp_data` ADD PRIMARY KEY (`db_id`), MODIFY `db_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=1"])
 
 def add_pricepaid_indicies(conn):
-    cur = conn.cursor()
-    cur.execute("CREATE INDEX `pp.postcode` USING HASH ON `pp_data` (postcode)");
-    cur.execute("CREATE INDEX `pp.date` USING HASH ON `pp_data` (date_of_transfer)")
-    return cur.fetchall()
+    return execute(conn,["CREATE INDEX `pp.postcode` USING HASH ON `pp_data` (postcode)",
+    "CREATE INDEX `pp.date` USING HASH ON `pp_data` (date_of_transfer)"])
+
+def create_postcode_table(conn):
+    execute(conn,["DROP TABLE IF EXISTS `postcode_data`",
+    """CREATE TABLE IF NOT EXISTS `postcode_data` (
+    `postcode` varchar(8) COLLATE utf8_bin NOT NULL,
+    `status` enum('live','terminated') NOT NULL,
+    `usertype` enum('small', 'large') NOT NULL,
+    `easting` int unsigned,
+    `northing` int unsigned,
+    `positional_quality_indicator` int NOT NULL,
+    `country` enum('England', 'Wales', 'Scotland', 'Northern Ireland', 'Channel Islands', 'Isle of Man') NOT NULL,
+    `lattitude` decimal(11,8) NOT NULL,
+    `longitude` decimal(10,8) NOT NULL,
+    `postcode_no_space` tinytext COLLATE utf8_bin NOT NULL,
+    `postcode_fixed_width_seven` varchar(7) COLLATE utf8_bin NOT NULL,
+    `postcode_fixed_width_eight` varchar(8) COLLATE utf8_bin NOT NULL,
+    `postcode_area` varchar(2) COLLATE utf8_bin NOT NULL,
+    `postcode_district` varchar(4) COLLATE utf8_bin NOT NULL,
+    `postcode_sector` varchar(6) COLLATE utf8_bin NOT NULL,
+    `outcode` varchar(4) COLLATE utf8_bin NOT NULL,
+    `incode` varchar(3)  COLLATE utf8_bin NOT NULL,
+    `db_id` bigint(20) unsigned NOT NULL
+    ) DEFAULT CHARSET=utf8 COLLATE=utf8_bin""",
+    "ALTER TABLE `postcode_data` ADD PRIMARY KEY (`db_id`), MODIFY `db_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=1",
+    "CREATE INDEX `po.postcode` USING HASH ON `postcode_data` (postcode)"
+    ])
 
 
 def select_top(conn, table,  n):
@@ -76,7 +105,6 @@ def select_top(conn, table,  n):
     """
     cur = conn.cursor()
     cur.execute(f'SELECT * FROM {table} LIMIT {n}')
-
     rows = cur.fetchall()
     return rows
 
@@ -85,15 +113,15 @@ def head(conn, table, n=5):
   for r in rows:
       print(r)
 
-#TODO: Rename 
-def load_file(conn,table,file):
+
+#TODO: Rename
+def load_file(conn,table,file,enclosed_by_double_quote=False):
     """
     Lode local data file into table
     :param conn: the Connection object
     :param table: the table to query
     :param file: the local file to load from
     """
-    command = (f"LOAD DATA LOCAL INFILE '{file}' INTO TABLE {table} FIELDS TERMINATED BY ',' ENCLOSED BY '\"' LINES STARTING BY '' TERMINATED BY '\\n'")
-    cur = conn.cursor()
-    cur.execute(command)
-    return cur.fetchall()
+    enclosed_specifier = "ENCLOSED BY '\"'" if enclosed_by_double_quote else ""
+    command = (f"LOAD DATA LOCAL INFILE '{file}' INTO TABLE {table} FIELDS TERMINATED BY ',' {enclosed_specifier} LINES STARTING BY '' TERMINATED BY '\\n'")
+    return execute(conn,command)
