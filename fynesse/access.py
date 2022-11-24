@@ -1,6 +1,8 @@
 from .config import *
 
 import pymysql
+import urllib.request
+from os.path import exists
 
 # This file accesses the data
 
@@ -64,6 +66,17 @@ def create_pricepaid_table(conn):
     `db_id` bigint(20) unsigned NOT NULL
     ) DEFAULT CHARSET=utf8 COLLATE=utf8_bin AUTO_INCREMENT=1""",
     "ALTER TABLE `pp_data` ADD PRIMARY KEY (`db_id`), MODIFY `db_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=1"])
+
+def add_pricepaid_data(conn, dest_dir, base_url="http://prod.publicdata.landregistry.gov.uk.s3-website-eu-west-1.amazonaws.com"):
+    for year in range(1995,2023):
+        filename = f"pp-{year}.csv"
+        source = f"{base_url}/{filename}"
+        destination = f"{dest_dir}/{filename}"
+        if not exists(path):
+            print(f"downloading {source} to {destination}")
+            urllib.request.urlretrieve(source, destination)
+        load_file(conn,"pp_data",destination)
+
 
 def add_pricepaid_indicies(conn):
     return execute(conn,["CREATE INDEX `pp.postcode` USING HASH ON `pp_data` (postcode)",
