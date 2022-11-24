@@ -75,7 +75,7 @@ def load_pricepaid_data(conn, dest_dir, source_base="http://prod.publicdata.land
         if not exists(destination):
             print(f"downloading {source} to {destination}")
             urllib.request.urlretrieve(source, destination)
-        load_file(conn,"pp_data",destination)
+        load_file(conn,"pp_data",destination,display=True)
 
 
 def add_pricepaid_indicies(conn):
@@ -128,13 +128,15 @@ def head(conn, table, n=5):
 
 
 #TODO: Rename
-def load_file(conn,table,file,enclosed_by_double_quote=False):
+def load_file(conn,table,file,display=False,enclosed_by_double_quote=False):
     """
     Lode local data file into table
     :param conn: the Connection object
     :param table: the table to query
     :param file: the local file to load from
     """
+    if display:
+        print(f"Loading {file} into {table}")
     enclosed_specifier = "ENCLOSED BY '\"'" if enclosed_by_double_quote else ""
     command = (f"LOAD DATA LOCAL INFILE '{file}' INTO TABLE {table} FIELDS TERMINATED BY ',' {enclosed_specifier} LINES STARTING BY '' TERMINATED BY '\\n'")
     return execute(conn,command)
