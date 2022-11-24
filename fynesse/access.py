@@ -75,7 +75,7 @@ def load_pricepaid_data(conn, dest_dir, years=range(1995,2023), source_base="htt
         if not exists(destination):
             print(f"downloading {source} to {destination}")
             urllib.request.urlretrieve(source, destination)
-        load_file(conn,"pp_data",destination,display=True)
+        load_file(conn,"pp_data",destination,display=True,enclosed_by_double_quote=True)
 
 
 def add_pricepaid_indicies(conn):
