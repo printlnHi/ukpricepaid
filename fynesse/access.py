@@ -67,8 +67,8 @@ def create_pricepaid_table(conn):
     ) DEFAULT CHARSET=utf8 COLLATE=utf8_bin AUTO_INCREMENT=1""",
     "ALTER TABLE `pp_data` ADD PRIMARY KEY (`db_id`), MODIFY `db_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=1"])
 
-def load_pricepaid_data(conn, dest_dir, source_base="http://prod.publicdata.landregistry.gov.uk.s3-website-eu-west-1.amazonaws.com"):
-    for year in range(1995,2023):
+def load_pricepaid_data(conn, dest_dir, years=range(1995,2023), source_base="http://prod.publicdata.landregistry.gov.uk.s3-website-eu-west-1.amazonaws.com"):
+    for year in years:
         filename = f"pp-{year}.csv"
         source = f"{source_base}/{filename}"
         destination = f"{dest_dir}/{filename}"
