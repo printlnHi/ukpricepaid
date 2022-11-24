@@ -8,7 +8,7 @@ import pymysql
 
 def execute(conn, commands):
     cur = conn.cursor()
-    if type(commands)==str then:
+    if type(commands)==str:
         commands=[commands]
     for command in commands:
         cur.execute(command)
