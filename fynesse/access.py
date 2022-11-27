@@ -3,6 +3,7 @@ from .config import *
 import pymysql
 import urllib.request
 from os.path import exists
+import ipywidgets as widgets
 
 # This file accesses the data
 
@@ -18,9 +19,10 @@ def execute(conn, commands):
     conn.commit()
     return cur.fetchall()
 
-def create_connection(user, password, host, database, port=3306):
+def create_connection(user, password, host, database, port=3306,create_database_if_missing = None):
     """ Create a database connection to the MariaDB database
         specified by the host url and database name.
+        If this fails because the database does not exist, create it (after confirmation)
     :param user: username
     :param password: password
     :param host: host url
@@ -35,8 +37,28 @@ def create_connection(user, password, host, database, port=3306):
                                host=host,
                                port=port,
                                local_infile=1,
-                               db=database
-                               )
+                               db=database)
+    except pymysql.OperationalError as e:
+        print(dir(e))
+        print(e.args[0])
+        print(f"Error connecting to the MariaDB Server: {e}")
+        ER_BAD_DB_ERROR = 1049 #FROM https://mariadb.com/kb/en/mariadb-error-codes/
+        if e.args[0] == ER_BAD_DB_ERROR:
+            if create_database_if_missing == None:
+                print("creating button")
+                button = widgets.Button(
+                    description=f'Create database {database}?',
+                    disabled=False,
+                    button_style='warning', # 'success', 'info', 'warning', 'danger' or ''
+                    tooltip='click to create',
+                    icon='check' # (FontAwesome names without the `fa-` prefix)
+                )
+                def disable_button_and_create_db(button):
+                    button.disabled=True
+                    print("FAKE CREATE")
+                button.on_click(disable_button_and_create_db)
+            elif create_database_if_missing:
+                create_database_ifne(conn)
     except Exception as e:
         print(f"Error connecting to the MariaDB Server: {e}")
     return conn
