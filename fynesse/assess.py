@@ -14,7 +14,9 @@ import sklearn.feature_extraction"""
 
 # ==== Inspecting database tables and calculating summary stats ====
 def numcol_summary(conn,table,col):
-  return access.execute(conn, f"SELECT max({col}), min({col}), avg({col}), stddev({col}) FROM {table}")
+  results = access.execute(conn, f"SELECT max({col}), min({col}), avg({col}), stddev({col}) FROM {table}")[0]
+  return  {"max":results[0],"min":results[1],"avg":results[2],"stddev":results[3]}
+
 
 def group_count(conn,table,group_by):
   return access.execute(conn, f"SELECT {group_by}, COUNT(*) FROM {table} GROUP BY {group_by}")
@@ -26,12 +28,10 @@ def summarise_table(conn,table,numerical_cols,groupings,display=True):
 
   numerical_cols_results = {}
   for col in numerical_cols:
-    sumstat = numerical_col_summary(conn,table,col)
-    max,min,avg,stddev = sumstat[0]
-    numerical_cols_results["col"] = {"max":max,"min":min,"avg":avg,"stddev":stddev}
+    stat = numcol_summary(conn,table,col)
+    numerical_cols_results[col] = stat
     if display:
-      print(f"{col} summary statistics:\n max/avg/min:{max:.3g}/{avg:.3g}/{min:.3g} stddev:{stddev:.3g}")
-
+      print(f'{col} summary statistics:\n max/avg/min:{stat["max"]:.3g}/{stat["avg"]:.3g}/{stat["min"]:.3g} stddev:{stat["stddev"]:.3g}')
 
   grouped_results = {}
   for group_by in groupings:
@@ -41,6 +41,7 @@ def summarise_table(conn,table,numerical_cols,groupings,display=True):
       print(f"{group_by} group counts:\n {group_counts}")
 
   return {"total_rows":total_rows, "numerical_cols":numerical_cols_results, "groupings": grouped_results}
+mainland_bbox = {"maxlat":58.66667, "minlat":49.9591, "maxlong":1.766667, "minlong":-8.1775}
 
 def data():
     """Load the data from access and ensure missing values are correctly encoded as well as indices correct, column names informative, date and times correctly formatted. Return a structured data structure such as a data frame."""
