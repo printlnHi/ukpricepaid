@@ -3,7 +3,8 @@ from .config import *
 import pymysql
 import urllib.request
 from os.path import exists
-import ipywidgets as widgets
+import geopandas as gpd
+import osmnx as ox
 
 # This file accesses the data
 
@@ -169,14 +170,103 @@ def load_file(conn,table,file,display=False,enclosed_by_double_quote=False):
     command = (f"LOAD DATA LOCAL INFILE '{file}' INTO TABLE {table} FIELDS TERMINATED BY ',' {enclosed_specifier} LINES STARTING BY '' TERMINATED BY '\\n'")
     return execute(conn,command)
 
-#======= Bounding box stuff (todo rename the word stuff) ======
-selwyn_coords = (52.2011,0.1056)
+def inner_join(conn, bbox = None, date_bound = None, limit=None, sample_every = None, output_commands=False):
+  conditions = []
+  if sample_every != None:
+    conditions.append("pp_data.db_id mod sample_every = 0")
+  if bbox != None:
+    conditions.append(f"lattitude between {bbox[0]} AND {bbox[1]} AND longitude between {bbox[2]} and {bbox[3]}")
+  if date_bound != None:
+    from_date,to_date = date_bound
+    conditions.append(f"DATE(date_of_transfer) between '{from_date}' and '{to_date}'")
+  conditions = " AND ".join(conditions)
+
+  query = f"""
+SELECT price, date_of_transfer, `pp_data`.postcode, property_type, new_build_flag, tenure_type, locality, town_city, district, county, country, lattitude, longitude
+FROM
+    `pp_data`
+INNER JOIN 
+    `postcode_data`
+ON
+    `pp_data`.postcode = `postcode_data`.postcode
+{"WHERE "+conditions if len(conditions)>0 else ""}
+{f"LIMIT {limit}" if limit != None else ""}
+"""
+  results=execute(conn, query, output_commands=output_commands)
+  gdf = gpd.GeoDataFrame(results, columns=["price", "date_of_transfer", "postcode", "property_type", "new_build_flag", "tenure_type", "locality", "town_city", "district", "county", "country", "latitude", "longitude"])
+  gdf.geometry = gpd.points_from_xy(gdf.longitude, gdf.latitude, crs= "EPSG:4326")
+  return gdf
+
+#===== Bounding boxes and example coordinates =====
+"""
+The sane bounding box (bbox) format is
+  (minlat,maxlat,minlong,maxlong)
+however ox's bbox functions use
+  (maxlat,minlat,maxlong,minlong)
+All sample bboxs and return types are of the sane format, unless otherwise specified
+"""
+example_coords = {"selwyn":(52.2011,0.1056), "leman_locke_aldagte": (51.5145,-0.0708), "london":(51.5072, 0.1276)}
+
 mainland_bbox = (49.9591, 58.66667, -8.1775, 1.766667)
 
-def bbox(centre,height,width=None):
-    if width == None:
-        width = height
+def bbox(centre,width,height):
     lat,long = centre
     return (lat-height/2,lat+height/2,long-width/2,long+width/2)
 
-#======= Open street maps stuff ======
+"""
+bbox comparison to use for documentation
+bbox(access.selwyn_coords,0.1,0.1) -> (52.1511, 52.251099999999994, 0.0556, 0.15560000000000002)
+km_bbox(access.selwyn_coords,11.119,11.119) -> (52.15110228594827, 52.251097714051724, 0.02402262622942146, 0.18717737377057853)
+"""
+def km_bbox(centre,kmwidth,kmheight):
+    """Creates a geographic bounding box s.t. the east-west line through the centre is the required width and the north-south line through the centre is the required height
+    :param centre: the geographic lat,long centre
+    :param kmwidth: the width of the E-W line in kilometers
+    :param kmheight: the height of the N-S line in kilometers
+    :return a bbox
+    """
+    lat,long = centre
+    kms_in_1_degree_of_lat = ox.distance.great_circle_vec(0,long,1,long) / 1000
+    kms_in_1_degree_of_long = ox.distance.great_circle_vec(lat,0,lat,1) / 1000
+    height = kmheight / kms_in_1_degree_of_lat
+    width = kmwidth / kms_in_1_degree_of_long
+    return bbox(centre,height,width)
+
+
+def toggle_format(bbox):
+    """Toggle between (minlat,maxlat,minlong,maxlong) and (maxlat,minlat,maxlong,minlong)"""
+    return (bbox[1],bbox[0],bbox[3],bbox[2])
+
+def in_bbox(point, bbox):
+    """
+    :param point: a (lat,long) point
+    :param bbox: a bbox
+    :return a bolean indicating whether  point is inside or omn bbox"""
+    return bbox[0] <= point[0] <= bbox[1] and bbox[2] <= point[1] <= bbox[3]
+
+
+# ===== Open street maps =====
+tagsets = {
+"any_amenity":{"amenity":True},
+"positive_transport_amenities":
+  {"amenity": ["bicycle_station", "bicycle_rental", "boat_rental", "bus_station"]},
+"very_negative_amenities":
+  {"amenity":["brothel","casino","gambling","love_hotel","swingerclub","prison"]},
+"mid_distance_education_amenities":
+  {"amenity": ["college","kindergarten","library","toy_library","training","school","university"]}
+}
+
+def collect_pois(bbox, poi_collection_specs):
+    """
+    collect all pois in a bounding box for every collection spec
+    :param bbox: the bounding box in which to do the collection
+    :param poi_collection_specs: a list/iterable of dictionaries, each with a value for 'tagset'
+    :return the same list of dictionaries each with a new entry 'pois' containing the collected pois"""
+    poi_specs = []
+    for poi_collection_spec in poi_collection_specs:
+        pois = ox.geometries_from_bbox(* toggle_format(bbox), tagsets[poi_collection_spec["tagset"]])
+        print(f'{len(pois)} pois from {poi_collection_spec["tagset"]}')
+        poi_spec = dict(poi_collection_spec)
+        poi_spec["pois"]=pois
+        poi_specs.append(poi_spec)
+    return poi_specs
