@@ -111,7 +111,7 @@ def add_pricepaid_indicies(conn):
     return execute(conn,["CREATE INDEX `pp.postcode` USING HASH ON `pp_data` (postcode)",
     "CREATE INDEX `pp.date` USING HASH ON `pp_data` (date_of_transfer)"])
 
-def create_postcode_table(conn, table_name):
+def create_postcode_table(conn):
     execute(conn,["DROP TABLE IF EXISTS `postcode_data`",
     """CREATE TABLE IF NOT EXISTS `postcode_data` (
     `postcode` varchar(8) COLLATE utf8_bin NOT NULL,
