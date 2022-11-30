@@ -9,8 +9,8 @@ import matplotlib.pyplot as plt
 
 # ===== Inspecting database tables and calculating summary stats =====
 def numcol_summary(conn,table,col):
-  results = access.execute(conn, f"SELECT max({col}), min({col}), avg({col}), stddev({col}) FROM {table}")[0]
-  return  {"max":results[0],"min":results[1],"avg":results[2],"stddev":results[3]}
+  results = access.execute(conn, f"SELECT min({col}), max({col}), avg({col}), stddev({col}) FROM {table}")[0]
+  return  {"min":results[0],"max":results[1],"avg":results[2],"stddev":results[3]}
 
 def group_count(conn,table,group_by):
   return access.execute(conn, f"SELECT {group_by}, COUNT(*) FROM {table} GROUP BY {group_by}")
@@ -25,7 +25,7 @@ def summarise_table(conn,table,numerical_cols,groupings,display=True):
     stat = numcol_summary(conn,table,col)
     numerical_cols_results[col] = stat
     if display:
-      print(f'{col} summary statistics:\n max/avg/min:{stat["max"]:.3g}/{stat["avg"]:.3g}/{stat["min"]:.3g} stddev:{stat["stddev"]:.3g}')
+      print(f'{col} summary statistics:\n min/avg/max:{stat["min"]:.3g}/{stat["avg"]:.3g}/{stat["max"]:.3g} stddev:{stat["stddev"]:.3g}')
 
   grouped_results = {}
   for group_by in groupings:
