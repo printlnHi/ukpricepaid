@@ -137,6 +137,15 @@ def create_postcode_table(conn):
     "CREATE INDEX `po.postcode` USING HASH ON `postcode_data` (postcode)"
     ])
 
+def clean_postcode_data(conn,backup_table = None):
+    inclusion_criteria = "((country = 'England' OR country = 'Wales') AND lattitude != 0)"
+    if backup_table == None:
+        execute(conn,f"DELETE FROM postcode_data WHERE NOT {inclusion_criteria}")
+    else:
+        execute(conn, f"RENAME TABLE postcode_data TO `{backup_table}`")
+        create_postcode_table(conn)
+        execute(conn, f"INSERT INTO postcode_data SELECT * FROM `{backup_table}` WHERE {inclusion_criteria}")
+
 
 def select_top(conn, table,  n):
     """
@@ -170,12 +179,15 @@ def load_file(conn,table,file,display=False,enclosed_by_double_quote=False):
     command = (f"LOAD DATA LOCAL INFILE '{file}' INTO TABLE {table} FIELDS TERMINATED BY ',' {enclosed_specifier} LINES STARTING BY '' TERMINATED BY '\\n'")
     return execute(conn,command)
 
-def inner_join(conn, bbox = None, date_bound = None, limit=None, sample_every = None, output_commands=False):
+def inner_join(conn, bbox = None, invert_bbox=False, date_bound = None, limit=None, sample_every = None, output_commands=False):
   conditions = []
   if sample_every != None:
     conditions.append(f"RAND(pp_data.db_id)<{1.0/sample_every}")
   if bbox != None:
-    conditions.append(f"lattitude between {bbox[0]} AND {bbox[1]} AND longitude between {bbox[2]} and {bbox[3]}")
+    if invert_bbox:
+      conditions.append(f"(lattitude < {bbox[0]} OR {bbox[1]} < lattitude OR longitude < {bbox[2]} OR {bbox[3]} < longitude)")
+    else:
+      conditions.append(f"lattitude between {bbox[0]} AND {bbox[1]} AND longitude between {bbox[2]} and {bbox[3]}")
   if date_bound != None:
     from_date,to_date = date_bound
     conditions.append(f"DATE(date_of_transfer) between '{from_date}' and '{to_date}'")
@@ -207,7 +219,7 @@ All sample bboxs and return types are of the sane format, unless otherwise speci
 """
 example_coords = {"selwyn":(52.2011,0.1056), "leman_locke_aldagte": (51.5145,-0.0708), "london":(51.5072, 0.1276)}
 
-mainland_bbox = (49.9591, 55.8, -5.7, 1.766667)
+mainland_bbox = (49.9591, 55.8111, -5.716667, 1.766667)
 
 def bbox(centre,width,height):
     lat,long = centre
