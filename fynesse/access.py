@@ -111,7 +111,7 @@ def add_pricepaid_indicies(conn):
     return execute(conn,["CREATE INDEX `pp.postcode` USING HASH ON `pp_data` (postcode)",
     "CREATE INDEX `pp.date` USING HASH ON `pp_data` (date_of_transfer)"])
 
-def create_postcode_table(conn):
+def create_postcode_table(conn, table_name):
     execute(conn,["DROP TABLE IF EXISTS `postcode_data`",
     """CREATE TABLE IF NOT EXISTS `postcode_data` (
     `postcode` varchar(8) COLLATE utf8_bin NOT NULL,
@@ -173,7 +173,7 @@ def load_file(conn,table,file,display=False,enclosed_by_double_quote=False):
 def inner_join(conn, bbox = None, date_bound = None, limit=None, sample_every = None, output_commands=False):
   conditions = []
   if sample_every != None:
-    conditions.append("pp_data.db_id mod sample_every = 0")
+    conditions.append(f"RAND(pp_data.db_id)<{1.0/sample_every}")
   if bbox != None:
     conditions.append(f"lattitude between {bbox[0]} AND {bbox[1]} AND longitude between {bbox[2]} and {bbox[3]}")
   if date_bound != None:
@@ -185,7 +185,7 @@ def inner_join(conn, bbox = None, date_bound = None, limit=None, sample_every = 
 SELECT price, date_of_transfer, `pp_data`.postcode, property_type, new_build_flag, tenure_type, locality, town_city, district, county, country, lattitude, longitude
 FROM
     `pp_data`
-INNER JOIN 
+INNER JOIN
     `postcode_data`
 ON
     `pp_data`.postcode = `postcode_data`.postcode
@@ -207,7 +207,7 @@ All sample bboxs and return types are of the sane format, unless otherwise speci
 """
 example_coords = {"selwyn":(52.2011,0.1056), "leman_locke_aldagte": (51.5145,-0.0708), "london":(51.5072, 0.1276)}
 
-mainland_bbox = (49.9591, 58.66667, -8.1775, 1.766667)
+mainland_bbox = (49.9591, 55.8, -5.7, 1.766667)
 
 def bbox(centre,width,height):
     lat,long = centre
