@@ -278,11 +278,11 @@ def inner_join(
         conditions.append(f"RAND(pp_data.db_id)<{1.0/one_in}")
     if bbox is not None:
         if invert_bbox:
-        conditions.append(
-            f"(lattitude < {bbox[0]} OR {bbox[1]} < lattitude OR longitude < {bbox[2]} OR {bbox[3]} < longitude)")
+            conditions.append(
+                f"(lattitude < {bbox[0]} OR {bbox[1]} < lattitude OR longitude < {bbox[2]} OR {bbox[3]} < longitude)")
         else:
-        conditions.append(
-            f"lattitude between {bbox[0]} AND {bbox[1]} AND longitude between {bbox[2]} and {bbox[3]}")
+            conditions.append(
+                f"lattitude between {bbox[0]} AND {bbox[1]} AND longitude between {bbox[2]} and {bbox[3]}")
     if date_bound is not None:
         from_date, to_date = date_bound
         conditions.append(
