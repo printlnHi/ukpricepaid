@@ -69,7 +69,7 @@ def summarise_table(conn, table, numerical_cols, groupings, display=True):
 def plot_edges(bbox, **kwargs):
     graph = ox.graph_from_bbox(* access.toggle_format(bbox))
     nodes, edges = ox.graph_to_gdfs(graph)
-    options = {"edgecolor": "dimgray", "linewidth": 0.5}  # Defaults
+    options = {"edgecolor": "dimgray", "linewidth": 0.5, "zorder":0}  # Defaults
     options.update(kwargs)
     return edges.plot(**options)
 
@@ -95,9 +95,8 @@ def plot_transactions_and_pois(bbox, transactions, poi_specs):
         if len(pois) > 0:
             pois.plot(
                 ax=ax,
-                color=poi_spec.get("color"),
-                markersize=poi_spec.get("markersize"),
-                marker=poi_spec.get("marker"))
+                **poi_spec.get("plot_kwargs",{})
+                )
 
     plt.tight_layout()
     return (fig, ax)
@@ -116,6 +115,9 @@ def get_smallest_distances_2D(gdf1, gdf2, k=3):
 
 
 # ==== Assessing and visualising transactions ====
+
+example_coords = {"selwyn": (52.2011, 0.1056), "aldgate": (
+    51.5145, -0.0708), "beverly": (53.865815, -0.451361)}
 
 def periodic_average(df, period, valcol, datecol):
     """
@@ -139,7 +141,7 @@ def periodic_average_by_group(df, period, valcol, datecol, groupcol):
     :param datecol: the name of the column containing the dates
     :param groupcol: the name of the additional column to group by
     """
-    return sample.groupby(sample[groupcol]).apply(lambda df: periodic_average(df, period, valcol, datecol))
+    return df.groupby(df[groupcol]).apply(lambda df2: periodic_average(df2, period, valcol, datecol))
 
 def plot_price_trend(transactions, period="Y", **kwargs):
     """
@@ -151,30 +153,42 @@ def plot_price_trend(transactions, period="Y", **kwargs):
     options.update(kwargs)
     periodic_average(transactions, period, "price", "date_of_transfer").plot(**options)
 
-def plot_price_trends(transactions, period="Y"):
+def plot_price_trends(transactions, period="Y", axs=None, title=""):
     """
     Plot average transaction price over time, as a whole and broken down by property type
     :param transactions: the transactions
     :param period: a offset alias
+    :param axs: a sequence of axes that each plot will be plotted on. If none, a 1x plot of figsize (16,8) will be created
     """
 
-    fig, axs = plt.subplots(1,2,figsize=(16,8))
-    plot_price_trend(transactions, ax=axs[0])
+    axs_is_none = axs is None
+    if axs_is_none:
+      fig, axs = plt.subplots(1,2,figsize=(16,8))
+    plot_price_trend(transactions, ax=axs[0], ylabel=f"{title} average price per {period}")
 
-    by_type = periodic_average_by_group(df, period, "price", "date_of_transfer", "property_type")
-    by_type.unstack(level=0).plot(ax=axs[1], logy=True,ylabel="average price per "+period)
-    plt.tight_layout()
+    by_type = periodic_average_by_group(transactions, period, "price", "date_of_transfer", "property_type")
+    by_type.unstack(level=0).plot(ax=axs[1], logy=True,ylabel=f"{title} average price per {period}")
+    if axs_is_none:
+      plt.tight_layout()
 
-def plot_logprice_frequency(transactions):
+def plot_logprice_frequency(transactions, axs=None, title=""):
     """
     Visualise the frequency of log-prices via a histogram, overall and by property type
     :param transactions: a GeoDataFrame of transactions
+    :param axs: a sequence of 6 axes that each histogram should be plotted on. If None, a 2x3 plot of figsize (16,16) will be created
+    :param title_name: a string to be included at the stand of each plot's title
     """
-    fig, axs = plt.subplots(2,3,figsize=(16,16))
-    sns.histplot(np.log(transactions.price),kde=True,ax=axs[0][0]).set(title = "log price: all transactions")
+    axs_is_none = axs is None
+    if axs_is_none:
+      fig, axs = plt.subplots(2,3,figsize=(16,16))
+      axs = axs.flatten()
+    assert(len(axs)==6)
+
+    sns.histplot(np.log(transactions.price),kde=True,ax=axs[0]).set(title = f"{title} log price: all transactions")
     for i,property_type in enumerate(access.property_types):
-        j = i+1
-        sns.histplot(np.log(transactions[transactions.property_type==property_type].price),kde=True,ax=axs[j%2][j//2]).set(title=f"log price: type {property_type}")
+        sns.histplot(np.log(transactions[transactions.property_type==property_type].price),kde=True,ax=axs[i+1]).set(title=f"{title} log price: type {property_type}")
+    if axs_is_none:
+      plt.tight_layout()
 
 def plot_average_price_geographically(transactions, bins_across=20, **kwargs):
     """
@@ -220,8 +234,7 @@ def plot_transactions_and_prices_geographically(transactions, bins_across=20, av
     
     plot_purchase_volume_geographically(transactions, bins_across=bins_across, ax=axs[1][0], **volume_kwargs)
     
-    # Plot all transactions
-    if bbox != None:
+    if bbox is not None:
         plot_edges(bbox,ax=axs[1][1])
         
     for geocode in geocodes:
@@ -229,7 +242,7 @@ def plot_transactions_and_prices_geographically(transactions, bins_across=20, av
         area.plot(ax=axs[1][1], facecolor="white", edgecolor="black", markersize=0.01, linewidth=0.2)
     p1,p99 = map(int,np.percentile(transactions.price,(1,99)))
     txs = txs.sample(frac=1) #Shuffle transactions to avoid aliasing
-    txs.plot(ax=axs[1][1],c=txs["price"],cmap="inferno_r",vmin=p1,vmax=p99,alpha=alpha)
+    sns.scatterplot(x=txs.longitude, y=txs.latitude, hue=txs.price, ax=axs[1][1], alpha=alpha)
     plt.tight_layout()
 
 

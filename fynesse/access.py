@@ -347,8 +347,6 @@ The sane bounding box (bbox) format is
 All sample bboxs and return types are of the sane format, unless otherwise specified
 """
 
-example_coords = {"selwyn": (52.2011, 0.1056), "leman_locke_aldagte": (
-    51.5145, -0.0708), "london": (51.5072, 0.1276)}
 mainland_bbox = (49.9591, 55.8111, -5.716667, 1.766667)
 property_types = ["D", "S", "T", "F", "O"]
 
