@@ -156,13 +156,15 @@ def load_pricepaid_data(
 
 def create_pricepaid_indicies(conn):
     """
-    Create pp_data indicies on postcode and date_of_transfer
+    Create pp_data indicies on postcode, date_of_transfer and property_type
     :param conn: database connection
     """
     return execute(
         conn,
         "CREATE INDEX `pp.postcode` USING HASH ON `pp_data` (postcode)",
-        "CREATE INDEX `pp.date` USING HASH ON `pp_data` (date_of_transfer)")
+        "CREATE INDEX `pp.date` USING HASH ON `pp_data` (date_of_transfer)",
+        "CREATE INDEX `pp.type` USING HASH ON `pp_data` (property_type)"
+    )
 
 
 def create_postcode_table(conn):
@@ -264,7 +266,8 @@ def inner_join(
         date_bound=None,
         limit=None,
         one_in=None,
-        output_query=False):
+        output_query=False,
+        property_type=None):
     """
     Perform a join on postcode_data and pp_data on the postcode column
     :param conn: database connection
@@ -274,6 +277,7 @@ def inner_join(
     :param limit: the maximum number of rows that may be returned
     :param one_in: the reciprocal of the probability that a row is selected
     :param output_query: whether the SQL query should be printed
+    :param property_type: if not None, the specific property to select
     """
     conditions = []
     if one_in is not None:
@@ -289,6 +293,8 @@ def inner_join(
         from_date, to_date = date_bound
         conditions.append(
             f"DATE(date_of_transfer) between '{from_date}' and '{to_date}'")
+    if property_type is not None:
+        conditions.append(f"property_type = '{property_type}'")
     conditions = " AND ".join(conditions)
 
     query = f"""
