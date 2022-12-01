@@ -9,11 +9,18 @@ import matplotlib.pyplot as plt
 
 # ===== Inspecting database tables and calculating summary stats =====
 def numcol_summary(conn,table,col):
-  results = access.execute(conn, f"SELECT min({col}), max({col}), avg({col}), stddev({col}) FROM {table}")[0]
+  """
+  Compute summary statics for a numerical column in a table
+  :param conn: the database connection
+  :param table: the table
+  :param col: the column
+  :return a dictionary with four keys - "min", "max", "avg", "stddev" and 3 float values
+  """
+  results = access.execute(conn, f"SELECT min({col}), max({col}), avg({col}), stddev({col}) FROM `{table}`")[0]
   return  {"min":results[0],"max":results[1],"avg":results[2],"stddev":results[3]}
 
 def group_count(conn,table,group_by):
-  return access.execute(conn, f"SELECT {group_by}, COUNT(*) FROM {table} GROUP BY {group_by}")
+  return access.execute(conn, f"SELECT {group_by}, COUNT(*) FROM `{table}` GROUP BY {group_by}")
 
 def summarise_table(conn,table,numerical_cols,groupings,display=True):
   total_rows = access.execute(conn, "SELECT count(*) FROM pp_data")
@@ -37,6 +44,14 @@ def summarise_table(conn,table,numerical_cols,groupings,display=True):
   return {"total_rows":total_rows, "numerical_cols":numerical_cols_results, "groupings": grouped_results}
 
 # ===== Open street maps =====
+
+def plot_edges(bbox, **kwargs):
+    graph = ox.graph_from_bbox(* access.toggle_format(bbox))
+    nodes, edges = ox.graph_to_gdfs(graph)
+    options = {"edgecolor":"dimgray","linewidth":0.5} #Defaults
+    options.update(kwargs)
+    return edges.plot(**options)
+
 def plot_transactions_and_pois(bbox,transactions,poi_specs):
     """
     TODO: DOCUMENT
@@ -44,9 +59,7 @@ def plot_transactions_and_pois(bbox,transactions,poi_specs):
     fig, ax = plt.subplots(figsize=(8,8))
 
     # Plot street edges
-    graph = ox.graph_from_bbox(* access.toggle_format(bbox))
-    nodes, edges = ox.graph_to_gdfs(graph)
-    edges.plot(ax=ax, linewidth=1, edgecolor="dimgray")
+    plot_edges(bbox, ax=ax)
 
     # Plot transactions
     transactions.plot(ax=ax, alpha=0.5, c=transactions["price"])
@@ -62,7 +75,7 @@ def plot_transactions_and_pois(bbox,transactions,poi_specs):
 
 def get_smallest_distances_2D(gdf1, gdf2, k=3):
     """
-    for every entry in gdf1, calculate the k smallest distances from it to entries in gdf2
+    For every entry in gdf1, calculate the k smallest distances from it to entries in gdf2
     :param gdf1: a GeoDataFrame
     :param gdf2: a GeoDataFrame
     :return a series of float64 series, containing k smallest distances (or less depending on length of gdf2)
