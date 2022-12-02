@@ -388,7 +388,7 @@ def km_bbox(centre, kmwidth, kmheight):
         lat, 0, lat, 1) / 1000
     height = kmheight / kms_in_1_degree_of_lat
     width = kmwidth / kms_in_1_degree_of_long
-    return bbox(centre, height, width)
+    return bbox(centre, width, height)
 
 
 def toggle_format(bbox):
