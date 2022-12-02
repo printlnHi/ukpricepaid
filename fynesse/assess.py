@@ -3,13 +3,15 @@ from .config import *
 from . import access
 
 import osmnx as ox
+import geopandas as gpd
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 import seaborn as sns
-
 from scipy import stats
+from scipy import spatial
+from collections import Counter
 
 """Place commands in this file to assess the data you have downloaded. How are missing values encoded, how are outliers encoded? What do columns represent, makes rure they are correctly labeled. How is the data indexed. Crete visualisation routines to assess the data (e.g. in bokeh). Ensure that date formats are correct and correctly timezoned."""
 
@@ -219,7 +221,6 @@ def plot_transactions_and_prices_geographically(transactions, bins_across=20, av
 
 # ===== Assessing and visualising POIs =====
 
-
 def plot_transactions_and_pois(bbox, transactions, poi_specs, **kwargs):
     fig, ax = plt.subplots(figsize=(8, 8))
 
@@ -239,6 +240,8 @@ def plot_transactions_and_pois(bbox, transactions, poi_specs, **kwargs):
     plt.tight_layout()
     return (fig, ax)
 
+
+
 def get_smallest_distances_2D(gdf1, gdf2, k=3):
     """
     For every entry in gdf1, calculate the k smallest distances from it to entries in gdf2
@@ -250,6 +253,83 @@ def get_smallest_distances_2D(gdf1, gdf2, k=3):
     ys = gdf2.geometry.to_crs(epsg=3310)
     return gdf1.geometry.to_crs(epsg=3310).map(
         lambda x: ys.distance(x).nsmallest(k))
+
+def display_every_amenity(bbox, transactions, ax=None, **kwargs):
+    """
+    Plot all amenities in a bounding box, and transactions, and print the values of the amenity tags
+    :param bbox: the bounding box
+    :param transactions: a GeoDataFrame of transactions
+    :param ax: the axis to plot on, if None a (8,8) plot is created
+    """
+    ax_is_none = ax is None
+    if ax_is_none:
+        fig, ax = plt.subplots(figsize=(8, 8))
+
+    plot_edges(bbox, ax=ax)
+
+    plot_transactions(transactions, ax=ax, **kwargs)
+
+    all_amenities = access.collect_pois(bbox, {"amenity":True})
+    all_amenities.plot(ax=ax, alpha=0.5)
+    
+    for amenity, count in Counter(all_amenities["amenity"]).most_common():
+        print(f"{amenity}: {count}",end="  ")
+    if ax_is_none:
+        plt.tight_layout()
+
+def get_distances_2D(gdf1, gdf2, k=50):
+    """
+    Calculates an ordered list of the k closest centroid distances from gdf2 geometry to each point in gdf1 geometry, assuming geometry is latitude,longitude
+    :param gdf1: a GeoDataFrame
+    :param gdf2: a GeoDataFrame
+    :param k: the maximium number of distances to be included in each list
+    """
+    def convert_point_array(arr):
+        return np.array(list(map(lambda point: [point.x, point.y], arr)))
+    xs = convert_point_array(gdf1.geometry.to_crs(epsg=3310).centroid)
+    ys = convert_point_array(gdf2.geometry.to_crs(epsg=3310).centroid)
+    matrix = spatial.distance.cdist(xs,ys)
+    return np.sort(matrix,axis=1)[:,:k]
+
+def make_poi_features(bbox, transactions, tagsets, to_make, max_dist=5000):
+    """
+    Gather all pois in a certain bounding box belonging to tagsets and make features for each transactions based on pois in their vicint
+    :param bbox: the bbox in which to gather pois
+    :param transactions: a GeoDataFrame of transactions
+    :param tagsets: a dictionary of tagsets
+    :param to_make: a sequence of tuples specifiying the features to create where the first argument is either "closest" or ("count",radius) and the second argument is a tagset. A 'closest' feature is the distance to the nearest poi of the tagset from each transaction. A 'count' feature is the number of pois of the tagset within radius meters of each transaction.
+    :param max_dist: the maximum distance in meters to clip 'closest' features to
+    :return a dataframe with the same index as transactions, and a column for each tuple. a closest
+    """
+    pois = {}
+    print("downloading all tagsets")
+    for tagset in tagsets:
+        pois[tagset] = access.collect_pois(bbox, tagsets[tagset])
+
+    print("computing distances to transactions")
+    distances = {}
+    for tagset in tagsets:
+        if len(pois[tagset]) == 0:
+            print(f"no POIs for {tagset}")
+            continue
+        distances[tagset] = get_distances_2D(transactions, pois[tagset])
+
+    print("calculating features")
+    result = gpd.GeoDataFrame(index=transactions.index)
+    for (metric,tagset) in to_make:
+        name = f"{metric}-{tagset}"
+        if tagset not in distances:
+            print(f"no distances for {tagset}")
+            continue
+        feature = None
+        if metric == "closest":
+            feature = np.clip(distances[tagset][:,0], 50, max_dist)
+        if type(metric) == tuple and metric[0] == "count":
+            radius = metric[1]
+            feature = np.sum(distances[tagset]<radius,axis=1)
+        if feature is not None:
+            result[name] = np.array(feature)
+    return result
 
 def data():
     """Load the data from access and ensure missing values are correctly encoded as well as indices correct, column names informative, date and times correctly formatted. Return a structured data structure such as a data frame."""

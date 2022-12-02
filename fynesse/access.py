@@ -407,36 +407,6 @@ def in_bbox(point, bbox):
 
 
 # ===== Open street maps =====
-tagsets = {
-    "any_amenity": {
-        "amenity": True},
-    "positive_transport_amenities": {
-        "amenity": [
-            "bicycle_station",
-            "bicycle_rental",
-            "boat_rental",
-            "bus_station"]},
-    "very_negative_amenities": {
-        "amenity": [
-            "brothel",
-            "casino",
-            "gambling",
-            "love_hotel",
-            "swingerclub",
-            "prison",
-            "stripclub"]},
-    "mid_distance_education_amenities": {
-        "amenity": [
-            "college",
-            "kindergarten",
-            "library",
-            "toy_library",
-            "training",
-            "school",
-            "university"],
-        "place_of_worship": {
-            "amenity": "place_of_worship"}}}
-
 
 def collect_pois(bbox, tagset):
     """
@@ -444,19 +414,3 @@ def collect_pois(bbox, tagset):
     :param bbox: the bbox
     :param tagset: the open street maps tagset"""
     return ox.geometries_from_bbox(* toggle_format(bbox), tagset)
-
-
-def collect_pois_from_collection_spec(bbox, poi_collection_specs):
-    """
-    collect all pois in a bounding box for every collection spec
-    :param bbox: the bounding box in which to do the collection
-    :param poi_collection_specs: a list/iterable of dictionaries, each with a value for 'tagset'
-    :return the same list of dictionaries each with a new entry 'pois' containing the collected pois"""
-    poi_specs = []
-    for poi_collection_spec in poi_collection_specs:
-        pois = collect_pois(bbox, tagsets[poi_collection_spec["tagset"]])
-        print(f'{len(pois)} pois from {poi_collection_spec["tagset"]}')
-        poi_spec = dict(poi_collection_spec)
-        poi_spec["pois"] = pois
-        poi_specs.append(poi_spec)
-    return poi_specs
