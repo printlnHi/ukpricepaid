@@ -72,7 +72,10 @@ def summarise_table(conn, table, numerical_cols, groupings, display=True):
 def plot_edges(bbox, **kwargs):
     graph = ox.graph_from_bbox(* access.toggle_format(bbox))
     nodes, edges = ox.graph_to_gdfs(graph)
-    options = {"edgecolor": "dimgray", "linewidth": 0.5, "zorder":0}  # Defaults
+    options = {
+        "edgecolor": "dimgray",
+        "linewidth": 0.5,
+        "zorder": 0}  # Defaults
     options.update(kwargs)
     return edges.plot(**options)
 
@@ -82,6 +85,7 @@ def plot_edges(bbox, **kwargs):
 example_locations = ["aldgate", "selwyn", "beverly"]
 example_coords = {"selwyn": (52.2011, 0.1056), "aldgate": (
     51.5145, -0.0708), "beverly": (53.865815, -0.451361)}
+
 
 def periodic_average(df, period, valcol, datecol):
     """
@@ -93,7 +97,10 @@ def periodic_average(df, period, valcol, datecol):
     TODO: Maybe make this no longer DataFrame specific if possible
     """
 
-    return df.groupby(df[datecol].dt.to_period(period)).apply(lambda df2: np.mean(df2[valcol]))
+    return df.groupby(
+        df[datecol].dt.to_period(period)).apply(
+        lambda df2: np.mean(
+            df2[valcol]))
 
 
 def periodic_average_by_group(df, period, valcol, datecol, groupcol):
@@ -105,7 +112,14 @@ def periodic_average_by_group(df, period, valcol, datecol, groupcol):
     :param datecol: the name of the column containing the dates
     :param groupcol: the name of the additional column to group by
     """
-    return df.groupby(df[groupcol]).apply(lambda df2: periodic_average(df2, period, valcol, datecol))
+    return df.groupby(
+        df[groupcol]).apply(
+        lambda df2: periodic_average(
+            df2,
+            period,
+            valcol,
+            datecol))
+
 
 def plot_price_trend(transactions, period="Y", **kwargs):
     """
@@ -113,9 +127,15 @@ def plot_price_trend(transactions, period="Y", **kwargs):
     :param transactions: the transactions
     :param period: a offset alias
     """
-    options = {"ylabel":"average price per "+period, "logy":True}
+    options = {"ylabel": "average price per " + period, "logy": True}
     options.update(kwargs)
-    periodic_average(transactions, period, "price", "date_of_transfer").plot(**options)
+    periodic_average(
+        transactions,
+        period,
+        "price",
+        "date_of_transfer").plot(
+        **options)
+
 
 def plot_price_trends(transactions, period="Y", axs=None, title=""):
     """
@@ -127,13 +147,26 @@ def plot_price_trends(transactions, period="Y", axs=None, title=""):
 
     axs_is_none = axs is None
     if axs_is_none:
-      fig, axs = plt.subplots(1,2,figsize=(16,8))
-    plot_price_trend(transactions, ax=axs[0], ylabel=f"{title} average price per {period}")
+        fig, axs = plt.subplots(1, 2, figsize=(16, 8))
+    plot_price_trend(
+        transactions,
+        ax=axs[0],
+        ylabel=f"{title} average price per {period}")
 
-    by_type = periodic_average_by_group(transactions, period, "price", "date_of_transfer", "property_type")
-    by_type.unstack(level=0).plot(ax=axs[1], logy=True,ylabel=f"{title} average price per {period}")
+    by_type = periodic_average_by_group(
+        transactions,
+        period,
+        "price",
+        "date_of_transfer",
+        "property_type")
+    by_type.unstack(
+        level=0).plot(
+        ax=axs[1],
+        logy=True,
+        ylabel=f"{title} average price per {period}")
     if axs_is_none:
-      plt.tight_layout()
+        plt.tight_layout()
+
 
 def plot_logprice_frequency(transactions, axs=None, title=""):
     """
@@ -144,15 +177,22 @@ def plot_logprice_frequency(transactions, axs=None, title=""):
     """
     axs_is_none = axs is None
     if axs_is_none:
-      fig, axs = plt.subplots(2,3,figsize=(16,16))
-      axs = axs.flatten()
-    assert(len(axs)==6)
+        fig, axs = plt.subplots(2, 3, figsize=(16, 16))
+        axs = axs.flatten()
+    assert (len(axs) == 6)
 
-    sns.histplot(np.log(transactions.price),kde=True,ax=axs[0]).set(title = f"{title} log price: all transactions")
-    for i,property_type in enumerate(access.property_types):
-        sns.histplot(np.log(transactions[transactions.property_type==property_type].price),kde=True,ax=axs[i+1]).set(title=f"{title} log price: type {property_type}")
+    sns.histplot(
+        np.log(
+            transactions.price),
+        kde=True,
+        ax=axs[0]).set(
+            title=f"{title} log price: all transactions")
+    for i, property_type in enumerate(access.property_types):
+        sns.histplot(np.log(transactions[transactions.property_type == property_type].price),
+                     kde=True, ax=axs[i + 1]).set(title=f"{title} log price: type {property_type}")
     if axs_is_none:
-      plt.tight_layout()
+        plt.tight_layout()
+
 
 def plot_average_price_geographically(transactions, bins_across=20, **kwargs):
     """
@@ -161,16 +201,25 @@ def plot_average_price_geographically(transactions, bins_across=20, **kwargs):
     :param bins_across: the number of bins in each dimension
     :param **kwargs: arguments for sns.heatmap
     """
-    options = {"norm":LogNorm()}
+    options = {"norm": LogNorm()}
     options.update(kwargs)
 
-    average_prices = stats.binned_statistic_2d(transactions.longitude_f, transactions.latitude_f, transactions.price, bins=bins_across)
-    x_centres = list(map(lambda coord: f"{coord:.3f}",(average_prices.x_edge[:-1]+average_prices.x_edge[1:])/2))
-    y_centres = list(map(lambda coord: f"{coord:.3f}",(average_prices.y_edge[:-1]+average_prices.y_edge[1:])/2))
-    df = pd.DataFrame(np.rot90(average_prices.statistic), index=pd.Index(y_centres[::-1],name="latitude"), columns=x_centres)
+    average_prices = stats.binned_statistic_2d(
+        transactions.longitude_f,
+        transactions.latitude_f,
+        transactions.price,
+        bins=bins_across)
+    x_centres = list(map(
+        lambda coord: f"{coord:.3f}", (average_prices.x_edge[:-1] + average_prices.x_edge[1:]) / 2))
+    y_centres = list(map(
+        lambda coord: f"{coord:.3f}", (average_prices.y_edge[:-1] + average_prices.y_edge[1:]) / 2))
+    df = pd.DataFrame(np.rot90(average_prices.statistic), index=pd.Index(
+        y_centres[::-1], name="latitude"), columns=x_centres)
     sns.heatmap(df, **options).set(title="average transaction price")
-    
-def plot_purchase_volume_geographically(transactions, bins_across=20, **kwargs):
+
+
+def plot_purchase_volume_geographically(
+        transactions, bins_across=20, **kwargs):
     """
     Visualise the geographic distribution of purchase volume
     :param transactions: a GeoDataFrame of transactions
@@ -178,16 +227,34 @@ def plot_purchase_volume_geographically(transactions, bins_across=20, **kwargs):
     :param **kwargs: arguments for sns.histplot
     """
     txs = transactions
-    bins = (np.linspace(min(txs.longitude_f),max(txs.longitude_f),bins_across),np.linspace(min(txs.latitude_f),max(txs.latitude_f),bins_across))
-    sns.histplot(x=txs.longitude, y=txs.latitude, weights=txs.price, bins=bins, cbar=True, **kwargs).set(title = "total transaction volume (£)")
+    bins = (np.linspace(min(txs.longitude_f), max(txs.longitude_f), bins_across),
+            np.linspace(min(txs.latitude_f), max(txs.latitude_f), bins_across))
+    sns.histplot(x=txs.longitude,
+                 y=txs.latitude,
+                 weights=txs.price,
+                 bins=bins,
+                 cbar=True,
+                 **kwargs).set(title="total transaction volume (£)")
 
 
 def plot_transactions(transactions, **kwargs):
-  options = {"hue_norm":LogNorm(), "alpha":0.1}
-  options.update(kwargs)
-  sns.scatterplot(x=transactions.longitude, y=transactions.latitude, hue=transactions.price, **options)
+    options = {"hue_norm": LogNorm(), "alpha": 0.1}
+    options.update(kwargs)
+    sns.scatterplot(
+        x=transactions.longitude,
+        y=transactions.latitude,
+        hue=transactions.price,
+        **options)
 
-def plot_transactions_and_prices_geographically(transactions, bins_across=20, average_kwargs={}, volume_kwargs={}, geocodes = [], bbox=None, alpha = 0.1):
+
+def plot_transactions_and_prices_geographically(
+        transactions,
+        bins_across=20,
+        average_kwargs={},
+        volume_kwargs={},
+        geocodes=[],
+        bbox=None,
+        alpha=0.1):
     """
     Produces 4 geographic plots showing transaction count, average price, total volume and a visualisation of all transactions, respectively.
     :param transactions: a GeoDataFrame of transactions
@@ -198,23 +265,41 @@ def plot_transactions_and_prices_geographically(transactions, bins_across=20, av
     :param bbox: if not None, a bounding box that will be passed to plot_edges for all-transactions visualisation
     :param alpha: the alpha value of transactions in the all-transactions visualisation
     """
-    fig, axs = plt.subplots(2,2,figsize=(8,8))
+    fig, axs = plt.subplots(2, 2, figsize=(8, 8))
     txs = transactions
-    
-    sns.histplot(x=txs.longitude,y=txs.latitude, cbar=True,ax=axs[0][0]).set(title="number of transactions")
-    
-    plot_average_price_geographically(transactions, bins_across=bins_across, ax=axs[0][1], **average_kwargs)
-    
-    plot_purchase_volume_geographically(transactions, bins_across=bins_across, ax=axs[1][0], **volume_kwargs)
-    
+
+    sns.histplot(
+        x=txs.longitude,
+        y=txs.latitude,
+        cbar=True,
+        ax=axs[0][0]).set(
+        title="number of transactions")
+
+    plot_average_price_geographically(
+        transactions,
+        bins_across=bins_across,
+        ax=axs[0][1],
+        **average_kwargs)
+
+    plot_purchase_volume_geographically(
+        transactions,
+        bins_across=bins_across,
+        ax=axs[1][0],
+        **volume_kwargs)
+
     if bbox is not None:
-        plot_edges(bbox,ax=axs[1][1])
-        
+        plot_edges(bbox, ax=axs[1][1])
+
     for geocode in geocodes:
         area = ox.geocode_to_gdf(geocode)
-        area.plot(ax=axs[1][1], facecolor="white", edgecolor="black", markersize=0.01, linewidth=0.2)
-    p1,p99 = map(int,np.percentile(transactions.price,(1,99)))
-    txs = txs.sample(frac=1) #Shuffle transactions to avoid aliasing
+        area.plot(
+            ax=axs[1][1],
+            facecolor="white",
+            edgecolor="black",
+            markersize=0.01,
+            linewidth=0.2)
+    p1, p99 = map(int, np.percentile(transactions.price, (1, 99)))
+    txs = txs.sample(frac=1)  # Shuffle transactions to avoid aliasing
     plot_transactions(txs, ax=axs[1][1], alpha=alpha)
     plt.tight_layout()
 
@@ -234,12 +319,11 @@ def plot_transactions_and_pois(bbox, transactions, poi_specs, **kwargs):
         if len(pois) > 0:
             pois.plot(
                 ax=ax,
-                **poi_spec.get("plot_kwargs",{})
-                )
+                **poi_spec.get("plot_kwargs", {})
+            )
 
     plt.tight_layout()
     return (fig, ax)
-
 
 
 def get_smallest_distances_2D(gdf1, gdf2, k=3):
@@ -253,6 +337,7 @@ def get_smallest_distances_2D(gdf1, gdf2, k=3):
     ys = gdf2.geometry.to_crs(epsg=3310)
     return gdf1.geometry.to_crs(epsg=3310).map(
         lambda x: ys.distance(x).nsmallest(k))
+
 
 def display_every_amenity(bbox, transactions, ax=None, **kwargs):
     """
@@ -269,13 +354,14 @@ def display_every_amenity(bbox, transactions, ax=None, **kwargs):
 
     plot_transactions(transactions, ax=ax, **kwargs)
 
-    all_amenities = access.collect_pois(bbox, {"amenity":True})
+    all_amenities = access.collect_pois(bbox, {"amenity": True})
     all_amenities.plot(ax=ax, alpha=0.5)
-    
+
     for amenity, count in Counter(all_amenities["amenity"]).most_common():
-        print(f"{amenity}: {count}",end="  ")
+        print(f"{amenity}: {count}", end="  ")
     if ax_is_none:
         plt.tight_layout()
+
 
 def get_distances_2D(gdf1, gdf2, k=50):
     """
@@ -288,8 +374,9 @@ def get_distances_2D(gdf1, gdf2, k=50):
         return np.array(list(map(lambda point: [point.x, point.y], arr)))
     xs = convert_point_array(gdf1.geometry.to_crs(epsg=3310).centroid)
     ys = convert_point_array(gdf2.geometry.to_crs(epsg=3310).centroid)
-    matrix = spatial.distance.cdist(xs,ys)
-    return np.sort(matrix,axis=1)[:,:k]
+    matrix = spatial.distance.cdist(xs, ys)
+    return np.sort(matrix, axis=1)[:, :k]
+
 
 def make_poi_features(bbox, transactions, tagsets, to_make, max_dist=5000):
     """
@@ -316,20 +403,21 @@ def make_poi_features(bbox, transactions, tagsets, to_make, max_dist=5000):
 
     print("calculating features")
     result = gpd.GeoDataFrame(index=transactions.index)
-    for (metric,tagset) in to_make:
+    for (metric, tagset) in to_make:
         name = f"{metric}-{tagset}"
         if tagset not in distances:
             print(f"no distances for {tagset}")
             continue
         feature = None
         if metric == "closest":
-            feature = np.clip(distances[tagset][:,0], 50, max_dist)
+            feature = np.clip(distances[tagset][:, 0], 50, max_dist)
         if type(metric) == tuple and metric[0] == "count":
             radius = metric[1]
-            feature = np.sum(distances[tagset]<radius,axis=1)
+            feature = np.sum(distances[tagset] < radius, axis=1)
         if feature is not None:
             result[name] = np.array(feature)
     return result
+
 
 def data():
     """Load the data from access and ensure missing values are correctly encoded as well as indices correct, column names informative, date and times correctly formatted. Return a structured data structure such as a data frame."""

@@ -328,12 +328,14 @@ def inner_join(
     gdf.geometry = gpd.points_from_xy(
         gdf.longitude, gdf.latitude, crs="EPSG:4326")
 
-    # We need date_of_transfer to have the correct dtype to support .dt attributes
+    # We need date_of_transfer to have the correct dtype to support .dt
+    # attributes
     gdf.date_of_transfer = pd.to_datetime(gdf.date_of_transfer)
 
-    #We want to keep latitude and longitude in exact form via Decimal, but frequently need them as floats for arithmetic
-    gdf["latitude_f"] =  np.array(list(map(float,gdf.latitude)))
-    gdf["longitude_f"] =  np.array(list(map(float,gdf.longitude)))
+    # We want to keep latitude and longitude in exact form via Decimal, but
+    # frequently need them as floats for arithmetic
+    gdf["latitude_f"] = np.array(list(map(float, gdf.latitude)))
+    gdf["longitude_f"] = np.array(list(map(float, gdf.longitude)))
 
     return gdf
 
