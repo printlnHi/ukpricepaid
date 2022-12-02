@@ -384,7 +384,7 @@ def make_poi_features(bbox, transactions, tagsets, to_make, max_dist=5000):
     :param bbox: the bbox in which to gather pois
     :param transactions: a GeoDataFrame of transactions
     :param tagsets: a dictionary of tagsets
-    :param to_make: a sequence of tuples specifiying the features to create where the first argument is either "closest" or ("count",radius) and the second argument is a tagset. A 'closest' feature is the distance to the nearest poi of the tagset from each transaction. A 'count' feature is the number of pois of the tagset within radius meters of each transaction.
+    :param to_make: a sequence of tuples specifiying the features to create where the first argument is either "closest" or ("count",radius) and the second argument is a tagset. A 'closest' feature is the distance to the nearest poi of the tagset from each transaction. A 'count' feature is the log (number of pois of the tagset within radius meters of each transaction + 1).
     :param max_dist: the maximum distance in meters to clip 'closest' features to
     :return a dataframe with the same index as transactions, and a column for each tuple. a closest
     """
@@ -418,6 +418,13 @@ def make_poi_features(bbox, transactions, tagsets, to_make, max_dist=5000):
             result[name] = np.array(feature)
     return result
 
+def heatmap_correlation(df, title="",find_corrs_for="log_price"):
+    cols = len(df.columns)
+    corrs = df.corr(numeric_only=True)
+    sns.heatmap(corrs, annot=cols<=15, fmt=(".1f" if cols>10 else ".2f")).set(title=title)
+    absolute_corrs = corrs.columns[np.abs(corrs[find_corrs_for])>0.1].values
+    plt.show()
+    return list(absolute_corrs)
 
 def data():
     """Load the data from access and ensure missing values are correctly encoded as well as indices correct, column names informative, date and times correctly formatted. Return a structured data structure such as a data frame."""
