@@ -6,6 +6,7 @@ import osmnx as ox
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
 import seaborn as sns
 
 from scipy import stats
@@ -74,48 +75,9 @@ def plot_edges(bbox, **kwargs):
     return edges.plot(**options)
 
 
-# ===== Assessing and visualising POIs =====
-
-
-def plot_transactions_and_pois(bbox, transactions, poi_specs):
-    """
-    TODO: DOCUMENT
-    """
-    fig, ax = plt.subplots(figsize=(8, 8))
-
-    # Plot street edges
-    plot_edges(bbox, ax=ax)
-
-    # Plot transactions
-    transactions.plot(ax=ax, alpha=0.5, c=transactions["price"])
-
-    # Plot pois
-    for poi_spec in poi_specs:
-        pois = poi_spec["pois"]
-        if len(pois) > 0:
-            pois.plot(
-                ax=ax,
-                **poi_spec.get("plot_kwargs",{})
-                )
-
-    plt.tight_layout()
-    return (fig, ax)
-
-def get_smallest_distances_2D(gdf1, gdf2, k=3):
-    """
-    For every entry in gdf1, calculate the k smallest distances from it to entries in gdf2
-    :param gdf1: a GeoDataFrame
-    :param gdf2: a GeoDataFrame
-    :return a series of float64 series, containing k smallest distances (or less depending on length of gdf2)
-    """
-    # TODO-someday: use ox.distance.shortest path as alternative weighting
-    ys = gdf2.geometry.to_crs(epsg=3310)
-    return gdf1.geometry.to_crs(epsg=3310).map(
-        lambda x: ys.distance(x).nsmallest(k))
-
-
 # ==== Assessing and visualising transactions ====
 
+example_locations = ["aldgate", "selwyn", "beverly"]
 example_coords = {"selwyn": (52.2011, 0.1056), "aldgate": (
     51.5145, -0.0708), "beverly": (53.865815, -0.451361)}
 
@@ -197,11 +159,14 @@ def plot_average_price_geographically(transactions, bins_across=20, **kwargs):
     :param bins_across: the number of bins in each dimension
     :param **kwargs: arguments for sns.heatmap
     """
+    options = {"norm":LogNorm()}
+    options.update(kwargs)
+
     average_prices = stats.binned_statistic_2d(transactions.longitude_f, transactions.latitude_f, transactions.price, bins=bins_across)
     x_centres = list(map(lambda coord: f"{coord:.3f}",(average_prices.x_edge[:-1]+average_prices.x_edge[1:])/2))
     y_centres = list(map(lambda coord: f"{coord:.3f}",(average_prices.y_edge[:-1]+average_prices.y_edge[1:])/2))
     df = pd.DataFrame(np.rot90(average_prices.statistic), index=pd.Index(y_centres[::-1],name="latitude"), columns=x_centres)
-    sns.heatmap(df, **kwargs).set(title="average transaction price")
+    sns.heatmap(df, **options).set(title="average transaction price")
     
 def plot_purchase_volume_geographically(transactions, bins_across=20, **kwargs):
     """
@@ -213,6 +178,12 @@ def plot_purchase_volume_geographically(transactions, bins_across=20, **kwargs):
     txs = transactions
     bins = (np.linspace(min(txs.longitude_f),max(txs.longitude_f),bins_across),np.linspace(min(txs.latitude_f),max(txs.latitude_f),bins_across))
     sns.histplot(x=txs.longitude, y=txs.latitude, weights=txs.price, bins=bins, cbar=True, **kwargs).set(title = "total transaction volume (£)")
+
+
+def plot_transactions(transactions, **kwargs):
+  options = {"hue_norm":LogNorm(), "alpha":0.1}
+  options.update(kwargs)
+  sns.scatterplot(x=transactions.longitude, y=transactions.latitude, hue=transactions.price, **options)
 
 def plot_transactions_and_prices_geographically(transactions, bins_across=20, average_kwargs={}, volume_kwargs={}, geocodes = [], bbox=None, alpha = 0.1):
     """
@@ -242,9 +213,43 @@ def plot_transactions_and_prices_geographically(transactions, bins_across=20, av
         area.plot(ax=axs[1][1], facecolor="white", edgecolor="black", markersize=0.01, linewidth=0.2)
     p1,p99 = map(int,np.percentile(transactions.price,(1,99)))
     txs = txs.sample(frac=1) #Shuffle transactions to avoid aliasing
-    sns.scatterplot(x=txs.longitude, y=txs.latitude, hue=txs.price, ax=axs[1][1], alpha=alpha)
+    plot_transactions(txs, ax=axs[1][1], alpha=alpha)
     plt.tight_layout()
 
+
+# ===== Assessing and visualising POIs =====
+
+
+def plot_transactions_and_pois(bbox, transactions, poi_specs, **kwargs):
+    fig, ax = plt.subplots(figsize=(8, 8))
+
+    plot_edges(bbox, ax=ax)
+
+    plot_transactions(transactions, ax=ax, **kwargs)
+
+    # Plot pois
+    for poi_spec in poi_specs:
+        pois = poi_spec["pois"]
+        if len(pois) > 0:
+            pois.plot(
+                ax=ax,
+                **poi_spec.get("plot_kwargs",{})
+                )
+
+    plt.tight_layout()
+    return (fig, ax)
+
+def get_smallest_distances_2D(gdf1, gdf2, k=3):
+    """
+    For every entry in gdf1, calculate the k smallest distances from it to entries in gdf2
+    :param gdf1: a GeoDataFrame
+    :param gdf2: a GeoDataFrame
+    :return a series of float64 series, containing k smallest distances (or less depending on length of gdf2)
+    """
+    # TODO-someday: use ox.distance.shortest path as alternative weighting
+    ys = gdf2.geometry.to_crs(epsg=3310)
+    return gdf1.geometry.to_crs(epsg=3310).map(
+        lambda x: ys.distance(x).nsmallest(k))
 
 def data():
     """Load the data from access and ensure missing values are correctly encoded as well as indices correct, column names informative, date and times correctly formatted. Return a structured data structure such as a data frame."""
