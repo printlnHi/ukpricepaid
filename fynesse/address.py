@@ -34,7 +34,15 @@ def grow_bounding_box(conn, target, initial_width=2, initial_height=2, max_growt
 
 def predict_price_with_features(conn, latitude, longitude, date, property_type, make_poi_features, tagsets, monthly_average_price_for_type, to_return = "pred", output=0):
     """
-    predict prices by constructing a certains set of poit_features
+    predict price for a property by constructing a certain set of poi_features, perform 5-fold cross validation to understand reliability.
+    :param conn: a database connection
+    :param longitude: the longitude coordinate (N-S)
+    :param latitude: the latitude coordinate (E-W)
+    :param date: the date to predict
+    :param property_type: the property type that is being predicted
+    :param monthly_average_price_for_type: a function which gives a GeoDataFrame of transactions returns a series indicating the monthly average price for each traction's date and property type
+    :to_return either "pred" indicating that the prediction should be returned or "cross_MSE" indicating the cross validation average Mean Squared Error should be returned.
+    :output an integer between 0 and 2 indicating the verbosity of intermediate output
     """
     target = (latitude,longitude)
     
@@ -61,7 +69,7 @@ def predict_price_with_features(conn, latitude, longitude, date, property_type, 
     y = np.log(transactions.price)
     X = data_features.to_numpy()
     query_X = query_features.to_numpy()
-    
+
     n_splits = 5
     kf = model_selection.KFold(n_splits=n_splits,shuffle=True,random_state=0)
     
